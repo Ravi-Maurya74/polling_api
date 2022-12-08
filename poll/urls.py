@@ -2,6 +2,7 @@ from django.urls import path
 from poll import views
 
 urlpatterns = [
+    path('', views.loadmain),
     path('createAdmin/', views.NewAdmin.as_view()),
     path('createSite/', views.NewSite.as_view()),
     path('createSiteAdmin/', views.NewSiteAdmin.as_view()),
@@ -14,5 +15,7 @@ urlpatterns = [
     path('stopPoll/', views.stopPoll),
     path('startPoll/', views.startPoll),
     path('listPoll/', views.ListPoll.as_view()),
-
+    path('localadmin/', views.siteadmin),
+    path('administrator/', views.loadadminpg),
+    path('candidates/', views.getCandidates),
 ]

@@ -115,3 +115,18 @@ class PollInfoSerializer(serializers.ModelSerializer):
             'description',
             'isActive'
         ]
+
+class PollCandidatesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Poll
+        fields = [
+            'description',
+            'choices'
+        ]
+
+class CandidatesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Choice
+        fields = [
+            'choice'
+        ]

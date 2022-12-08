@@ -6,7 +6,7 @@ from rest_framework.response import Response
 import json
 from django.db.models import Q
 from .serializer import CreateAdminSerializer, CreateSiteSerializer, CreateSiteAdminSerializer, CreateVoterSerializer, \
-    CreatePollSerializer, CreateChoiceSerializer, VoterInfoSerializer, PollDetailSerializer, ChoiceSiteSerializer, PollInfoSerializer
+    CreatePollSerializer, CreateChoiceSerializer, VoterInfoSerializer, PollDetailSerializer, ChoiceSiteSerializer, PollInfoSerializer, PollCandidatesSerializer, CandidatesSerializer
 
 
 # Create your views here.
@@ -41,11 +41,28 @@ class NewChoice(generics.CreateAPIView):
     serializer_class = CreateChoiceSerializer
 
 
+def loadmain(request):
+    return render(request, "index.html")
+
+
+def loadadminpg(request):
+    return render(request, "administrator.html")
+
+
+def siteadmin(request):
+    return render(request, "localadmin.html")
+
+
 @api_view(['POST'])
 def vote(request):
     received_json_data = json.loads(request.body)
-    voter_instance = Voter.objects.get(pk=received_json_data['voter_id'])
-    choice_instance = Choice.objects.get(pk=received_json_data['choice_id'])
+    try:
+        voter_instance = Voter.objects.get(email=received_json_data['email'])
+    except:
+        return Response({'prompt': 'Invalid email.'})
+    if voter_instance.password != received_json_data['password']:
+        return Response({'prompt': 'Invalid Password.'})
+    choice_instance = Choice.objects.get(choice=received_json_data['choice'])
     poll_instance = Poll.objects.get(pk=received_json_data['poll_id'])
     if voter_instance.answered.contains(poll_instance):
         return Response({'status': 400, 'prompt': 'Already voted.'})
@@ -56,13 +73,20 @@ def vote(request):
     voter_instance.answered.add(poll_instance)
     choice_instance.save()
     voter_instance.save()
-    data = VoterInfoSerializer(voter_instance).data
-    return Response({'status': 200, 'prompt': 'Vote recorded.', 'data': data})
+    return Response({'status': 200, 'name': voter_instance.name, 'choice': choice_instance.choice})
 
 
 @api_view(['POST'])
 def pollDetail(request):
     received_json_data = json.loads(request.body)
+    try:
+        admin_instance = Admin.objects.get(email=received_json_data['email'])
+    except:
+        return Response(({'prompt': 'given email does not exist.'}))
+
+    if (admin_instance.password != received_json_data['password']):
+        return Response({'prompt': 'Invalid password.'})
+
     poll_instance = Poll.objects.get(pk=received_json_data['poll_id'])
     data = PollDetailSerializer(poll_instance).data
     return Response(data)
@@ -71,11 +95,20 @@ def pollDetail(request):
 @api_view(['POST'])
 def pollSiteInfo(request):
     received_json_data = json.loads(request.body)
-    poll_instance = Poll.objects.get(pk=received_json_data['poll_id'])
+    print(received_json_data)
+    try:
+        site_admin_instance = SiteAdmin.objects.get(
+            email=received_json_data['email'])
+    except:
+        return Response({'prompt': 'given email does not exist.'})
+    if site_admin_instance.password != received_json_data['password']:
+        return Response({'prompt': 'Invalid.'})
+    poll_instance = Poll.objects.get(pk=1)
     poll_data = PollDetailSerializer(poll_instance).data
-    site_instance = Site.objects.get(pk=received_json_data['site_id'])
+    site_instance = site_admin_instance.site
     choices_instance = Choice.objects.filter(poll__exact=poll_instance)
-    result_data = ChoiceSiteSerializer(choices_instance, many=True, context={'site_id': site_instance.id}).data
+    result_data = ChoiceSiteSerializer(choices_instance, many=True, context={
+                                       'site_id': site_instance.id}).data
     return Response({'description': poll_data['description'], 'results': result_data})
 
 
@@ -102,3 +135,11 @@ def stopPoll(request):
 class ListPoll(generics.ListAPIView):
     queryset = Poll.objects.all()
     serializer_class = PollInfoSerializer
+
+
+@api_view(['POST'])
+def getCandidates(request):
+    received_json_data = json.loads(request.body)
+    poll_instance = Poll.objects.get(pk=received_json_data['poll_id'])
+    data = CandidatesSerializer(poll_instance.choices, many=True).data
+    return Response(data)
